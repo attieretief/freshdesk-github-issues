@@ -56,7 +56,7 @@ runs:
     - name: Pass Inputs to Shell
       run: |
         echo "TOKEN=${{ inputs.token }}" >> $GITHUB_ENV
-        echo "REPO="${{ github.workflow_run.repository.name }}"
+        echo "REPO=${{ github.workflow_run.repository.name }}"
         echo "ORG=${{ github.workflow_run.repository.owner.name }}"
         echo "PROJECT=${{ inputs.github_project_number }}"
         echo "STATUS_FIELD=${{ inputs.github_status_field }}"
