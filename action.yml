@@ -55,17 +55,17 @@ runs:
     - name: Pass Inputs to Shell
       run: |
         echo "TOKEN=${{ inputs.token }}" >> $GITHUB_ENV
-        echo "REPO=${{ github.workflow_run.repository.name }}"
-        echo "ORG=${{ github.workflow_run.repository.owner.name }}"
-        echo "PROJECT=${{ inputs.github_project_number }}"
-        echo "STATUS_FIELD=${{ inputs.github_status_field }}"
-        echo "PRIORITY_FIELD=${{ inputs.github_priority_field }}"
-        echo "COMPANY_FIELD=${{ inputs.github_company_field }}"
-        echo "DATE_FIELD=${{ inputs.github_date_field }}"
-        echo "TYPE_LABELS=${{ inputs.type_label_map }}"
-        echo "TAG=${{ inputs.freshdesk_tag }}"
-        echo "FRESHDESK_KEY=${{ inputs.freshdesk_key }}"
-        echo "FRESHDESK_URL=${{ inputs.freshdesk_domain }}"
+        echo "REPO=${{ github.workflow_run.repository.name }}" >> $GITHUB_ENV
+        echo "ORG=${{ github.workflow_run.repository.owner.name }}" >> $GITHUB_ENV
+        echo "PROJECT=${{ inputs.github_project_number }}" >> $GITHUB_ENV
+        echo "STATUS_FIELD=${{ inputs.github_status_field }}" >> $GITHUB_ENV
+        echo "PRIORITY_FIELD=${{ inputs.github_priority_field }}" >> $GITHUB_ENV
+        echo "COMPANY_FIELD=${{ inputs.github_company_field }}" >> $GITHUB_ENV
+        echo "DATE_FIELD=${{ inputs.github_date_field }}" >> $GITHUB_ENV
+        echo "TYPE_LABELS=${{ inputs.type_label_map }}" >> $GITHUB_ENV
+        echo "TAG=${{ inputs.freshdesk_tag }}" >> $GITHUB_ENV
+        echo "FRESHDESK_KEY=${{ inputs.freshdesk_key }}" >> $GITHUB_ENV
+        echo "FRESHDESK_URL=${{ inputs.freshdesk_domain }}" >> $GITHUB_ENV
       shell: bash
     - name: Synchronise
       id: sync
