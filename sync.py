@@ -652,7 +652,7 @@ def create_update_github_issues(fd_fields:dict,gh_fields:dict):
     cards = github_get_project_cards()
     for t in tickets:
         if t["custom_fields"]["cf_github_issue"]==None:
-            if t["custom_fields"]["cf_development_task_title"]!=None:
+            if (t["custom_fields"]["cf_development_task_title"]!=None) and (t["custom_fields"]["cf_repository"]!=None):
                 gh_issue = github_create_issue(t)
                 if gh_issue!={}:
                     freshdesk_add_note(gh_issue=gh_issue,ticket_id=t["id"])
@@ -660,7 +660,7 @@ def create_update_github_issues(fd_fields:dict,gh_fields:dict):
             gh_issue = github_get_issue(t["custom_fields"]["cf_github_issue"])
             if gh_issue:
                 github_update_issue(t,gh_issue)
-                card = next((c for c in cards if c["issue_number"] == gh_issue["number"]),False)
+                card = next((c for c in cards if (c["issue_number"] == gh_issue["number"]) and (c["repository"] == repo)),False)
                 if card:
                     github_update_project_card(card=card,company=freshdesk_get_company_name(ticket=t),priority=freshdesk_resolve_priority(t["priority"]),fields=gh_fields)
                     freshdesk_update_ticket_from_project(card=card,ticket=t)
