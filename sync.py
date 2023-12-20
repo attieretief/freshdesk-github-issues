@@ -214,7 +214,7 @@ def github_build_issue(ticket:dict):
     issue = {}
     assignees = None
     title = f"{ticket["custom_fields"]["cf_development_task_title"]} (FD#{ticket["id"]})"
-    body = f"<div><a https://{freshdesk_url}/a/tickets/{str(ticket['id'])}>Freshdeck Ticket #{str(ticket['id'])}</a></div>"
+    body = f"<a href=https://{freshdesk_url}/a/tickets/{str(ticket['id'])}>Freshdeck Ticket #{str(ticket['id'])}</a>"
     label = [map_type_label(ticket["type"])]
     if ticket["custom_fields"]["cf_assigned_developer"]!=None:
         assignees = [ticket["custom_fields"]["cf_assigned_developer"]]
@@ -485,7 +485,11 @@ def freshdesk_get_tickets():
 
 def freshdesk_add_note(gh_issue:dict,ticket_id):
     log.info("[yellow]Posting Freshdesk Note")
-    new_note_text = f'<html><h2 style="color: red;">Github Notification</h2><p>{gh_issue["user"]["login"]} created <a href="{gh_issue["url"]}">#{gh_issue["number"]}</a> at {gh_issue["created_at"]} in <a href="{gh_issue["repository_url"]}">{repo}</a></p></html>'
+    try:
+        assignee = gh_issue["user"]["login"]
+    except:
+        assignee = ''
+    new_note_text = f'<html><h2 style="color: red;">Github Notification</h2><p>{assignee} created <a href="{gh_issue["url"]}">#{gh_issue["number"]}</a> at {gh_issue["created_at"]} in <a href="{gh_issue["repository_url"]}">{repo}</a></p></html>'
     note = {}
     note.update({"body": new_note_text})
     note.update({"private": True })
