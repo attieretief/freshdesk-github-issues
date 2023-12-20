@@ -54,7 +54,7 @@ runs:
       shell: bash
     - name: Pass Inputs to Shell
       run: |
-        echo "TOKEN=${{ inputs.token }}" >> $GITHUB_ENV
+        echo "GITHUB_TOKEN=${{ inputs.token }}" >> $GITHUB_ENV
         echo "REPO=${{ github.repository }}" >> $GITHUB_ENV
         echo "ORG=${{ github.repository_owner }}" >> $GITHUB_ENV
         echo "PROJECT=${{ inputs.github_project_number }}" >> $GITHUB_ENV
