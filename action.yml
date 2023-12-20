@@ -63,9 +63,9 @@ runs:
         echo "COMPANY_FIELD=${{ inputs.github_company_field }}"
         echo "DATE_FIELD=${{ inputs.github_date_field }}"
         echo "TYPE_LABELS=${{ inputs.type_label_map }}"
-        echo "TAG=${{ inputs.freshdesk_key }}"
-        echo "FRESHDESK_KEY=${{ inputs.freshdesk_domain }}"
-        echo "FRESHDESK_URL=${{ inputs.freshdesk_tag }}"
+        echo "TAG=${{ inputs.freshdesk_tag }}"
+        echo "FRESHDESK_KEY=${{ inputs.freshdesk_key }}"
+        echo "FRESHDESK_URL=${{ inputs.freshdesk_domain }}"
       shell: bash
     - name: Synchronise
       id: sync
