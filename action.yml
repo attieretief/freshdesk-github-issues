@@ -1,0 +1,73 @@
+# action.yaml
+name: 'Freshdesk Github Sync'
+description: 'GitHub Action to convert and synchronise Freshdesk tickets to Github issues and related Github projects.'
+author: 'Attie Retief'
+branding:
+  icon: 'activity'
+  color: 'green'
+inputs:
+  token:
+    description: Personal access token
+    required: true
+  freshdesk_key:
+    description: Freshdesk API key 
+    required: true
+  freshdesk_domain:
+    required: true
+    description: The URL to your Freshdesk account (e.g. company.freshdesk.com)
+  freshdesk_tag:
+    required: true
+    description: The Freshdesk tag to use as filter for tickets to sync to Github
+  github_project_number:
+    required: true
+    description: Project number of the Github project to sync issues to/from
+  github_priority_field:
+    required: true
+    description: Name of priority field in Github project to sync values to
+    default: Priority
+  github_status_field:
+    required: true
+    description: Name of status field in Github project to sync values from
+    default: Status
+  github_company_field:
+    required: true
+    description: Name of company/client field in Github project to sync values from
+    default: Company
+  github_date_field:
+    required: true
+    description: Planned date of Github project item to sync to Freshdesk
+    default: "Planned Date"
+  type_label_map:
+    required: true
+    description: Mapping between Freshdesk ticket types and Github labels
+    default: "[['Issue','bug'],['Change Request','enhancement']]"
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+    - name: Install Dependencies
+      run: pip install -r requirements.txt
+      shell: bash
+    - name: Pass Inputs to Shell
+      run: |
+        echo "TOKEN=${{ inputs.token }}" >> $GITHUB_ENV
+        echo "REPO="${{ github.workflow_run.repository.name }}"
+        echo "ORG=${{ github.workflow_run.repository.owner.name }}"
+        echo "PROJECT=${{ inputs.github_project_number }}"
+        echo "STATUS_FIELD=${{ inputs.github_status_field }}"
+        echo "PRIORITY_FIELD=${{ inputs.github_priority_field }}"
+        echo "COMPANY_FIELD=${{ inputs.github_company_field }}"
+        echo "DATE_FIELD=${{ inputs.github_date_field }}"
+        echo "TYPE_LABELS=${{ inputs.type_label_map }}"
+        echo "TAG=${{ inputs.freshdesk_key }}"
+        echo "FRESHDESK_KEY=${{ inputs.freshdesk_domain }}"
+        echo "FRESHDESK_URL=${{ inputs.freshdesk_tag }}"
+      shell: bash
+    - name: Synchronise
+      id: sync
+      run: python sync.py
+      shell: bash
