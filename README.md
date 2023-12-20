@@ -26,7 +26,7 @@ jobs:
               with:
                 token: ${{ secrets.GH_API_KEY }}
                 freshdesk_key: ${{ secrets.FRESHDESK_API_KEY }}
-                freshdesk_domain: linc.co.za
+                freshdesk_domain: company.freshdesk.com
                 freshdesk_tag: DEV
                 github_project_number: 10
                 github_priority_field: Priority
@@ -55,7 +55,7 @@ with:
     with:
         token: ${{ secrets.GH_API_KEY }}
         freshdesk_key: ${{ secrets.FRESHDESK_API_KEY }}
-        freshdesk_domain: linc.co.za
+        freshdesk_domain: company.freshdesk.com
         freshdesk_tag: DEV
         github_project_number: 10
         github_priority_field: Priority
