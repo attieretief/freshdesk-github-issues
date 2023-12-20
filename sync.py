@@ -473,7 +473,7 @@ def freshdesk_get_ticket(ticket_id:int):
 
 def freshdesk_get_tickets():
     log.info("[yellow]Getting Freshdesk Tickets")
-    url = 'https://' + freshdesk_url + '/api/v2/search/tickets?query="(status:<4 OR status:>5) AND tag:' + "'" + tag + "'" + ' AND cf_repository:' + "'" + repo + "'" + '"'
+    url = 'https://' + freshdesk_url + '/api/v2/search/tickets?query="(status:<3 OR status:>6) AND tag:' + "'" + tag + "'" + ' AND cf_repository:' + "'" + repo + "'" + '"'
     headers,auth = freshdesk_headers()
     response = requests.get(url=url,headers=headers,auth=auth)
     if response.status_code==200:
