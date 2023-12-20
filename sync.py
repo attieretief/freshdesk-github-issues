@@ -67,8 +67,7 @@ def github_get_project_fields():
     return fields
 
 
-def github_get_project_statuses():
-    fields = github_get_project_fields()
+def github_get_project_statuses(fields:dict):
     for f in fields:
         if "name" in f:
             if f["name"]==status_field:
@@ -78,8 +77,7 @@ def github_get_project_statuses():
                 return options
 
 
-def github_get_project_priorities():
-    fields = github_get_project_fields()
+def github_get_project_priorities(fields:dict):
     for f in fields:
         if "name" in f:
             if f["name"]==priority_field:
@@ -93,11 +91,18 @@ def github_get_project_priorities():
                 return options
 
 
-def github_get_priority_option_id(priority:str):
-    priority_options = github_get_project_priorities()
+def github_get_priority_option_id(priority:str,fields:dict):
+    priority_options = github_get_project_priorities(fields=fields)
     option = next(opt for opt in priority_options if opt["name"] == priority)
     if option!={}:
         return option["id"],option["field_id"]
+
+
+def github_get_company_field_id(fields:dict):
+    for f in fields:
+        if "name" in f:
+            if f["name"]==company_field:
+                return f["id"]
 
 
 def github_get_members():
@@ -189,16 +194,12 @@ def github_get_project_cards():
                 if f.get("field"):
                     if f["field"]["name"] == status_field:
                         card_object[status_field] = f["name"]
-                        card_object[status_field+"_field_id"] = f["field"]["id"]
                     if f["field"]["name"] == date_field:
                         card_object[date_field] = f["date"]
-                        card_object[date_field+"_field_id"] = f["field"]["id"]
                     if f["field"]["name"] == company_field:
                         card_object[company_field] = f["text"]
-                        card_object[company_field+"_field_id"] = f["field"]["id"]
                     if f["field"]["name"] == priority_field:
                         card_object[priority_field] = f["name"]
-                        card_object[priority_field+"_field_id"] = f["field"]["id"]
             cards.append(card_object)
     return cards
 
@@ -304,7 +305,7 @@ def github_get_issue(gh_issue_number:str):
         log.error("[red]"+str(response.content))
 
 
-def github_update_project_card(card:dict,company:str,priority:str):
+def github_update_project_card(card:dict,company:str,priority:str,fields:dict):
     card_company=''
     try:
         card_company = card[company_field]
@@ -315,7 +316,7 @@ def github_update_project_card(card:dict,company:str,priority:str):
         log.info("[yellow]Updating Github Project Item "+str(card))
         card_id = card["item_id"]
         project_id = card["project_id"]
-        field_id = card[company_field+"_field_id"]
+        field_id = github_get_company_field_id(fields=fields)
         # update company field
         query = """
             mutation {
@@ -337,7 +338,7 @@ def github_update_project_card(card:dict,company:str,priority:str):
         log.info("[yellow]Updating Github Project Item "+str(card))
         card_id = card["item_id"]
         project_id = card["project_id"]
-        priority_option_id,field_id = github_get_priority_option_id(priority=priority)
+        priority_option_id,field_id = github_get_priority_option_id(priority=priority,fields=fields)
         # update priority field
         query = """
             mutation {
@@ -527,8 +528,9 @@ def freshdesk_update_ticket_from_project(card:dict,ticket:dict):
             log.error("[red]"+str(response.content))
 
 
-def create_freshdesk_fields():
+def get_create_freshdesk_fields():
     fields = freshdesk_get_fields()
+    github_project_fields = github_get_project_fields()
     
     if not next((field for field in fields if field["name"] == 'cf_development_task_title'),False):
         field = {
@@ -634,16 +636,18 @@ def create_freshdesk_fields():
 
     field_id = field_response["id"]
     field_choices = freshdesk_get_field_choices(response=field_response)
-    statuses = github_get_project_statuses()
+    statuses = github_get_project_statuses(github_project_fields)
     updated_field = None
     for status in statuses:
         if not freshdesk_field_choice_exists(field_choices=field_choices,choice=status):
             updated_field = freshdesk_add_field_choice(field=field_response,field_choices=field_choices,new_value=status)
     if updated_field:
         freshdesk_update_field(field_id=field_id,field=updated_field)
+    
+    return fields,github_project_fields
 
 
-def create_update_github_issues():
+def create_update_github_issues(fd_fields:dict,gh_fields:dict):
     tickets = freshdesk_get_tickets()
     cards = github_get_project_cards()
     for t in tickets:
@@ -658,10 +662,10 @@ def create_update_github_issues():
                 github_update_issue(t,gh_issue)
                 card = next((c for c in cards if c["issue_number"] == gh_issue["number"]),False)
                 if card:
-                    github_update_project_card(card=card,company=freshdesk_get_company_name(ticket=t),priority=freshdesk_resolve_priority(t["priority"]))
+                    github_update_project_card(card=card,company=freshdesk_get_company_name(ticket=t),priority=freshdesk_resolve_priority(t["priority"]),fields=gh_fields)
                     freshdesk_update_ticket_from_project(card=card,ticket=t)
 
 
 if __name__ == "__main__":
-    create_freshdesk_fields()
-    create_update_github_issues()
+    fd_fields, gh_fields = get_create_freshdesk_fields()
+    create_update_github_issues(fd_fields, gh_fields)
