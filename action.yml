@@ -50,7 +50,7 @@ runs:
       with:
         python-version: '3.12'
     - name: Install Dependencies
-      run: pip install -r requirements.txt
+      run: python -m pip install -r .github/workflows/requirements.txt
       shell: bash
     - name: Pass Inputs to Shell
       run: |
@@ -69,5 +69,5 @@ runs:
       shell: bash
     - name: Synchronise
       id: sync
-      run: python sync.py
+      run: python .github/workflows/sync.py
       shell: bash
