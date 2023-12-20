@@ -305,7 +305,13 @@ def github_get_issue(gh_issue_number:str):
 
 
 def github_update_project_card(card:dict,company:str,priority:str):
-    if card[company_field]!=company:
+    card_company=''
+    try:
+        card_company = card[company_field]
+    except:
+        if (company_field not in card):
+            card_company = ''
+    if company!=card_company:
         log.info("[yellow]Updating Github Project Item "+str(card))
         card_id = card["item_id"]
         project_id = card["project_id"]
