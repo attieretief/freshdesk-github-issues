@@ -293,21 +293,22 @@ def github_compare_issue_field(gh_issue:dict,field:str,value:str,updated_issue:d
                     labelfound = True
             if not labelfound:
                 updated_issue.update({field: [value]})
-        elif field=='assignees':
-            assigneesexist = gh_issue[field]!= []
-            if not assigneesexist:
-                updated_issue.update({field: [value]})
 
 
-def github_update_issue(ticket:dict,gh_issue:dict,repo:str):
+def github_update_issue(ticket:dict,gh_issue:dict,repo:str,card:dict):
+    fd_assignee = ticket["custom_fields"]["cf_assigned_developer"]
+    try:
+        gh_assignee = gh_issue["assignee"]["login"]
+    except:
+        gh_assignee=None
+    if gh_assignee!=None:
+        if fd_assignee!=gh_assignee:
+            card.update({"assignee": gh_assignee})
     title = f"{ticket["custom_fields"]["cf_development_task_title"]} (FD#{ticket["id"]})"
     body = f"<a href=https://{freshdesk_url}/a/tickets/{str(ticket['id'])}>Freshdeck Ticket #{str(ticket['id'])}</a>"
     label = map_type_label(ticket["type"])
-    assignee = ticket["custom_fields"]["cf_assigned_developer"]
     updated_issue = {}
     github_compare_issue_field(gh_issue=gh_issue,field="title",value=title,updated_issue=updated_issue)
-    if assignee!=None:
-        github_compare_issue_field(gh_issue=gh_issue,field="assignees",value=assignee,updated_issue=updated_issue)
     if label!=None:
         github_compare_issue_field(gh_issue=gh_issue,field="labels",value=label,updated_issue=updated_issue)
     github_compare_issue_field(gh_issue=gh_issue,field="body",value=body,updated_issue=updated_issue)
@@ -318,10 +319,12 @@ def github_update_issue(ticket:dict,gh_issue:dict,repo:str):
         response = requests.patch(url=url,headers=auth,json=updated_issue)
         if response.status_code==200:
             gh_issue = json.loads(response.content)
-            return gh_issue
+            return card
         else:
             log.error("[red]"+response.reason)
             log.error("[red]"+str(response.content))
+    else:
+        return card
 
 
 def github_get_issue(gh_issue_number:str,repo:str):
@@ -342,8 +345,7 @@ def github_update_project_card(card:dict,company:str,priority:str,fields:dict):
     try:
         card_company = card[company_field]
     except:
-        if (company_field not in card):
-            card_company = ''
+        card_company = ''
     if company!=card_company:
         log.info("[yellow]Updating Github Project Item "+str(card))
         card_id = card["item_id"]
@@ -364,8 +366,7 @@ def github_update_project_card(card:dict,company:str,priority:str,fields:dict):
     try:
         card_priority = card[priority_field]
     except:
-        if (priority_field not in card):
-            card_priority = ''
+        card_priority = ''
     if priority!=card_priority:
         log.info("[yellow]Updating Github Project Item "+str(card))
         card_id = card["item_id"]
@@ -525,23 +526,32 @@ def freshdesk_add_note(gh_issue:dict,ticket_id,repo:str):
 
 
 def freshdesk_update_ticket_from_project(card:dict,ticket:dict):
+    updated_ticket = {}
+    try:
+        new_ass = card["assignee"]
+    except:
+        new_ass = None
+    if (new_ass!=ticket["custom_fields"]["cf_assigned_developer"]):
+        if new_ass!=None:
+            new_ass = {"cf_assigned_developer": new_ass}
+            updated_ticket.update({"custom_fields": new_ass})
     try:
         new_date = card[date_field]
     except:
         new_date = None
-    if (new_date!=ticket["custom_fields"]["cf_planned_date"]) or (card[status_field]!=ticket["custom_fields"]["cf_development_status"]):
-        updated_ticket = {}
-        new_status = {"cf_development_status": card[status_field]}
-        updated_ticket.update({"custom_fields": new_status})
+    if (new_date!=ticket["custom_fields"]["cf_planned_date"]):
         if new_date!=None:
             new_date = {"cf_planned_date": new_date}
             updated_ticket.update({"custom_fields": new_date})
+    if (card[status_field]!=ticket["custom_fields"]["cf_development_status"]):
+        new_status = {"cf_development_status": card[status_field]}
+        updated_ticket.update({"custom_fields": new_status})
+    try:
+        func_area = ticket["custom_fields"]["cf_functional_area"]
+    except:
         new_func_area = {"cf_functional_area": "N/A"}
-        try:
-            if ticket["custom_fields"]["cf_functional_area"]==None:
-                updated_ticket.update({"custom_fields": new_func_area})
-        except:
-            updated_ticket.update({"custom_fields": new_func_area})
+        updated_ticket.update({"custom_fields": new_func_area})
+    if updated_ticket!={}:
         log.info("[yellow]Updating Freshdesk Ticket "+str(ticket["id"])+" "+str(updated_ticket))
         url = f"https://{freshdesk_url}/api/v2/tickets/{ticket["id"]}"
         headers,auth = freshdesk_headers()
@@ -684,11 +694,11 @@ def create_update_github_issues(fd_fields,gh_fields:dict,repo:str,cards:dict):
         else:
             gh_issue = github_get_issue(t["custom_fields"]["cf_github_issue"],repo)
             if gh_issue:
-                github_update_issue(t,gh_issue,repo)
                 card = next((c for c in cards if (c["issue_number"] == gh_issue["number"]) and (c["repository"] == repo)),False)
                 if card:
-                    github_update_project_card(card=card,company=freshdesk_get_company_name(ticket=t),priority=freshdesk_resolve_priority(t["priority"],fields=fd_fields),fields=gh_fields)
-                    freshdesk_update_ticket_from_project(card=card,ticket=t)
+                    newcard = github_update_issue(t,gh_issue,repo,card)
+                    github_update_project_card(card=newcard,company=freshdesk_get_company_name(ticket=t),priority=freshdesk_resolve_priority(t["priority"],fields=fd_fields),fields=gh_fields)
+                    freshdesk_update_ticket_from_project(card=newcard,ticket=t)
     log.info("[green]Ending sync for Repository "+repo)
 
 
