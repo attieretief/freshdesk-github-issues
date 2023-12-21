@@ -18,6 +18,9 @@ inputs:
   freshdesk_tag:
     required: true
     description: The Freshdesk tag to use as filter for tickets to sync to Github
+  github_repo_language_filter:
+    required: false
+    description: Optional filter to only include repos of a certain language
   github_project_number:
     required: true
     description: Project number of the Github project to sync issues to/from
@@ -55,8 +58,8 @@ runs:
     - name: Pass Inputs to Shell
       run: |
         echo "GITHUB_TOKEN=${{ inputs.token }}" >> $GITHUB_ENV
-        echo "REPO=${{ github.repository }}" >> $GITHUB_ENV
         echo "ORG=${{ github.repository_owner }}" >> $GITHUB_ENV
+        echo "LANGUAGE=${{ inputs.github_repo_language_filter }}" >> $GITHUB_ENV
         echo "PROJECT=${{ inputs.github_project_number }}" >> $GITHUB_ENV
         echo "STATUS_FIELD=${{ inputs.github_status_field }}" >> $GITHUB_ENV
         echo "PRIORITY_FIELD=${{ inputs.github_priority_field }}" >> $GITHUB_ENV
