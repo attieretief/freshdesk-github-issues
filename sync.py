@@ -690,7 +690,7 @@ def create_update_github_issues(fd_fields,gh_fields:dict,repo:str,cards:dict):
             if (t["custom_fields"]["cf_development_task_title"]!=None) and (t["custom_fields"]["cf_repository"]!=None):
                 gh_issue = github_create_issue(t,repo)
                 if gh_issue!={}:
-                    freshdesk_add_note(gh_issue=gh_issue,ticket_id=t["id"])
+                    freshdesk_add_note(gh_issue=gh_issue,ticket_id=t["id"],repo=repo)
         else:
             gh_issue = github_get_issue(t["custom_fields"]["cf_github_issue"],repo)
             if gh_issue:
