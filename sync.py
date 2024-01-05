@@ -265,7 +265,7 @@ def github_create_issue(ticket:dict,repo:str):
         url = f"https://api.github.com/repos/{org}/{repo}/issues"
         auth = github_auth()
         response = requests.post(url=url,headers=auth,json=issue)
-        if response.status_code==200:
+        if response.status_code==201:
             gh_issue = json.loads(response.content)
             return gh_issue
         else:
@@ -504,6 +504,21 @@ def freshdesk_get_tickets(repo:str):
         log.error("[red]"+response.reason)
         log.error("[red]"+str(response.content))
 
+def freshdesk_update_ticket_ghissue(ticket:dict,gh_issue:dict):
+    updated_ticket = {}
+    new_issue_number = {"cf_github_issue": gh_issue["number"]}
+    updated_ticket.update({"custom_fields": new_issue_number})
+    if updated_ticket!={}:
+        log.info("[yellow]Updating Freshdesk Ticket "+str(ticket["id"])+" "+str(updated_ticket))
+        url = f"https://{freshdesk_url}/api/v2/tickets/{ticket["id"]}"
+        headers,auth = freshdesk_headers()
+        response = requests.put(url=url,headers=headers,json=updated_ticket,auth=auth)
+        if response.status_code==200:
+            return(json.loads(response.content))
+        else:
+            log.error("[red]"+response.reason)
+            log.error("[red]"+str(response.content))
+
 
 def freshdesk_add_note(gh_issue:dict,ticket_id,repo:str):
     log.info("[yellow]Posting Freshdesk Note")
@@ -515,7 +530,7 @@ def freshdesk_add_note(gh_issue:dict,ticket_id,repo:str):
     note = {}
     note.update({"body": new_note_text})
     note.update({"private": True })
-    url = f"https://{freshdesk_url}/api/v2/admin/tickets/{ticket_id}/notes"
+    url = f"https://{freshdesk_url}/api/v2/tickets/{ticket_id}/notes"
     headers,auth = freshdesk_headers()
     response = requests.post(url=url,headers=headers,json=note,auth=auth)
     if response.status_code==200:
@@ -690,6 +705,7 @@ def create_update_github_issues(fd_fields,gh_fields:dict,repo:str,cards:dict):
             if (t["custom_fields"]["cf_development_task_title"]!=None) and (t["custom_fields"]["cf_repository"]!=None):
                 gh_issue = github_create_issue(t,repo)
                 if gh_issue!={}:
+                    freshdesk_update_ticket_ghissue(ticket=t,gh_issue=gh_issue)
                     freshdesk_add_note(gh_issue=gh_issue,ticket_id=t["id"],repo=repo)
         else:
             gh_issue = github_get_issue(t["custom_fields"]["cf_github_issue"],repo)
