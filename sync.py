@@ -506,7 +506,7 @@ def freshdesk_get_tickets(repo:str):
 
 def freshdesk_update_ticket_ghissue(ticket:dict,gh_issue:dict):
     updated_ticket = {}
-    new_issue_number = {"cf_github_issue": gh_issue["number"]}
+    new_issue_number = {"cf_github_issue": str(gh_issue["number"])}
     updated_ticket.update({"custom_fields": new_issue_number})
     if updated_ticket!={}:
         log.info("[yellow]Updating Freshdesk Ticket "+str(ticket["id"])+" "+str(updated_ticket))
@@ -533,7 +533,7 @@ def freshdesk_add_note(gh_issue:dict,ticket_id,repo:str):
     url = f"https://{freshdesk_url}/api/v2/tickets/{ticket_id}/notes"
     headers,auth = freshdesk_headers()
     response = requests.post(url=url,headers=headers,json=note,auth=auth)
-    if response.status_code==200:
+    if response.status_code==201:
         return(json.loads(response.content))
     else:
         log.error("[red]"+response.reason)
