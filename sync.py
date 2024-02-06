@@ -516,9 +516,9 @@ def freshdesk_get_ticket_summary(ticket: dict):
         ticket.update({"summary": summary})
         return(ticket)
     else:
-        log.error("[red]"+response.reason)
-        log.error("[red]"+str(response.content))
-    return ticket
+        log.info("[red]"+response.reason)
+        ticket.update({"summary": ""})
+        return(ticket)
 
 
 def freshdesk_update_ticket_ghissue(ticket:dict,gh_issue:dict):
