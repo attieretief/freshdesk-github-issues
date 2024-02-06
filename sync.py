@@ -246,7 +246,7 @@ def github_build_issue(ticket:dict):
     issue = {}
     assignees = None
     title = f"{ticket["custom_fields"]["cf_development_task_title"]} (FD#{ticket["id"]})"
-    body = f"<a href=https://{freshdesk_url}/a/tickets/{str(ticket['id'])}>Freshdeck Ticket #{str(ticket['id'])}</a>"
+    body = f"{ticket["summary"]}\n\n<a href=https://{freshdesk_url}/a/tickets/{str(ticket['id'])}>Freshdeck Ticket #{str(ticket['id'])}</a>"
     label = [map_type_label(ticket["type"])]
     if ticket["custom_fields"]["cf_assigned_developer"]!=None:
         assignees = [ticket["custom_fields"]["cf_assigned_developer"]]
@@ -504,6 +504,23 @@ def freshdesk_get_tickets(repo:str):
         log.error("[red]"+response.reason)
         log.error("[red]"+str(response.content))
 
+
+def freshdesk_get_ticket_summary(ticket: dict):
+    log.info("[yellow]Getting Freshdesk Ticket Summary")
+    url = 'https://' + freshdesk_url + '/api/v2/tickets/'+ str(ticket["id"]) + '/summary'
+    headers,auth = freshdesk_headers()
+    response = requests.get(url=url,headers=headers,auth=auth)
+    if response.status_code==200:
+        summary = json.loads(response.content)["body"]
+        log.info("[green]Freshdesk Ticket Summary found")
+        ticket.update({"summary": summary})
+        return(ticket)
+    else:
+        log.error("[red]"+response.reason)
+        log.error("[red]"+str(response.content))
+    return ticket
+
+
 def freshdesk_update_ticket_ghissue(ticket:dict,gh_issue:dict):
     updated_ticket = {}
     new_issue_number = {"cf_github_issue": str(gh_issue["number"])}
@@ -701,6 +718,7 @@ def create_update_github_issues(fd_fields,gh_fields:dict,repo:str,cards:dict):
     log.info("[green]Starting sync for Repository "+repo)
     tickets = freshdesk_get_tickets(repo)
     for t in tickets:
+        t = freshdesk_get_ticket_summary(t)
         if t["custom_fields"]["cf_github_issue"]==None:
             if (t["custom_fields"]["cf_development_task_title"]!=None) and (t["custom_fields"]["cf_repository"]!=None):
                 gh_issue = github_create_issue(t,repo)
