@@ -241,6 +241,7 @@ def map_type_label(type:str):
     for map in maplist:
         if type == map[0]:
             return map[1]
+    return None
 
 def github_build_issue(ticket:dict):
     issue = {}
@@ -254,7 +255,8 @@ def github_build_issue(ticket:dict):
     issue.update({"body": body})
     if assignees:
         issue.update({"assignees": assignees})
-    issue.update({"labels": label})
+    if label!=None:
+        issue.update({"labels": label})
     return issue
 
 
