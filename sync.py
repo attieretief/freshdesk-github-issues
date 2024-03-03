@@ -255,7 +255,7 @@ def github_build_issue(ticket:dict):
     issue.update({"body": body})
     if assignees:
         issue.update({"assignees": assignees})
-    if label!=None:
+    if label!=[None]:
         issue.update({"labels": label})
     return issue
 
