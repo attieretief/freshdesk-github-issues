@@ -32,7 +32,6 @@ jobs:
                 github_priority_field: Priority
                 github_status_field: Status
                 github_company_field: Company
-                github_date_field: "Planned Date"
                 type_label_map: "[['Issue','bug'],['Change Request','enhancement']]"
                 github_repo_language_filter: <LANGUAGE> [Optional]
 ```
@@ -62,7 +61,6 @@ with:
         github_priority_field: Priority
         github_status_field: Status
         github_company_field: Company
-        github_date_field: "Planned Date"
         type_label_map: "[['Issue','bug'],['Change Request','enhancement']]"
         github_repo_language_filter: <LANGUAGE> [Optional]
 ```
@@ -79,7 +77,6 @@ The following list of fields will be created, if they don't exist in Freshdesk, 
   - All organisation members will be added to the dropdown values for this field
 - Development Status (cf_development_status)
   - All statuses from the `github_status_field` of the `github_project_number` specified in options, will be added to the dropdown values for this field
-- Planned Date (cf_planned_date)
 
 ### Synced fields
 
@@ -101,7 +98,6 @@ For each ticket retrieved, a Github issue is either created or retrieved if `cf_
 
 If the Github issue exists in the specified `github_project_number`, the following project item fields are used to update the Freshdesk ticket:
 - ticket `cf_development_status` is updated from the project item's `github_status_field`
-- ticket `cf_planned_date` is updated from the project item's `github_date_field`
 - ticket `cf_assigned_developer` is updated from the project item's Assignee
 
 ## Personal Access Token

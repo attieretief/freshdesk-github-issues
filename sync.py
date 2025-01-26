@@ -14,7 +14,6 @@ project_number = os.environ.get("PROJECT")
 status_field = os.environ.get("STATUS_FIELD")
 priority_field = os.environ.get("PRIORITY_FIELD")
 company_field = os.environ.get("COMPANY_FIELD")
-date_field = os.environ.get("DATE_FIELD")
 type_label_map = os.environ.get("TYPE_LABELS")
 tag = os.environ.get("TAG")
 
@@ -151,14 +150,14 @@ def github_get_repos():
     return repos
 
 
-def github_get_project_cards():
+def github_get_project_cards(after_cursor=None):
     log.info("[yellow]Getting Github Project Items")
     query = f"""
         {{
             organization(login: "{org}") {{
                 projectV2(number: {project_number}) {{
                 id
-                items(first: 100) {{
+                items(first: 100, after: "{after_cursor}") {{
                     edges {{
                     node {{
                         id
@@ -206,6 +205,11 @@ def github_get_project_cards():
                         }}
                     }}
                     }}
+                    pageInfo {{
+                        endCursor
+                        hasNextPage
+                        hasPreviousPage
+                    }}
                 }}
                 }}
             }}
@@ -226,13 +230,13 @@ def github_get_project_cards():
                 if f.get("field"):
                     if f["field"]["name"] == status_field:
                         card_object[status_field] = f["name"]
-                    if f["field"]["name"] == date_field:
-                        card_object[date_field] = f["date"]
                     if f["field"]["name"] == company_field:
                         card_object[company_field] = f["text"]
                     if f["field"]["name"] == priority_field:
                         card_object[priority_field] = f["name"]
             cards.append(card_object)
+    if response["data"]["organization"]["projectV2"]["items"]["pageInfo"]["hasNextPage"]:
+        cards = cards + github_get_project_cards(after_cursor=response["data"]["organization"]["projectV2"]["items"]["pageInfo"]["endCursor"])
     return cards
 
 
@@ -545,7 +549,7 @@ def freshdesk_add_note(gh_issue:dict,ticket_id,repo:str):
         assignee = gh_issue["user"]["login"]
     except:
         assignee = ''
-    new_note_text = f'<html><h2 style="color: red;">Github Notification</h2><p>{assignee} created <a href="{gh_issue["url"]}">#{gh_issue["number"]}</a> at {gh_issue["created_at"]} in <a href="{gh_issue["repository_url"]}">{repo}</a></p></html>'
+    new_note_text = f'<html><h2 style="color: red;">Github Notification</h2><p>{assignee} created <a href="{gh_issue["html_url"]}">#{gh_issue["number"]}</a> at {gh_issue["created_at"]} in <a href="{gh_issue["repository_url"]}">{repo}</a></p></html>'
     note = {}
     note.update({"body": new_note_text})
     note.update({"private": True })
@@ -569,22 +573,9 @@ def freshdesk_update_ticket_from_project(card:dict,ticket:dict):
         if new_ass!=None:
             new_ass = {"cf_assigned_developer": new_ass}
             updated_ticket.update({"custom_fields": new_ass})
-    try:
-        new_date = card[date_field]
-    except:
-        new_date = None
-    if (new_date!=ticket["custom_fields"]["cf_planned_date"]):
-        if new_date!=None:
-            new_date = {"cf_planned_date": new_date}
-            updated_ticket.update({"custom_fields": new_date})
     if (card[status_field]!=ticket["custom_fields"]["cf_development_status"]):
         new_status = {"cf_development_status": card[status_field]}
         updated_ticket.update({"custom_fields": new_status})
-    try:
-        func_area = ticket["custom_fields"]["cf_functional_area"]
-    except:
-        new_func_area = {"cf_functional_area": "N/A"}
-        updated_ticket.update({"custom_fields": new_func_area})
     if updated_ticket!={}:
         log.info("[yellow]Updating Freshdesk Ticket "+str(ticket["id"])+" "+str(updated_ticket))
         url = f"https://{freshdesk_url}/api/v2/tickets/{ticket["id"]}"
@@ -627,20 +618,6 @@ def get_create_fields(repos:dict):
         }
         freshdesk_create_field(field=field)
 	
-
-    if not next((field for field in fields if field["name"] == 'cf_planned_date'),False):
-        field={
-            "label": "Planned Date",
-            "label_for_customers": "Planned Date",
-            "type": "custom_date",
-           "customers_can_edit": False,
-            "required_for_closure": False,
-            "required_for_agents": False,
-            "required_for_customers": False,
-            "displayed_to_customers": True
-        }
-        freshdesk_create_field(field=field)
-
     if not next((field for field in fields if field["name"] == 'cf_assigned_developer'),False):
         field={
             "label": "Assigned Developer",
