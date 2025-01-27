@@ -60,6 +60,7 @@ runs:
         echo "STATUS_FIELD=${{ inputs.github_status_field }}" >> $GITHUB_ENV
         echo "PRIORITY_FIELD=${{ inputs.github_priority_field }}" >> $GITHUB_ENV
         echo "COMPANY_FIELD=${{ inputs.github_company_field }}" >> $GITHUB_ENV
+        echo "ITERATION_FIELD"=${{ inputs.github_iteration_field }}" >> $GITHUB_ENV
         echo "TYPE_LABELS=${{ inputs.type_label_map }}" >> $GITHUB_ENV
         echo "TAG=${{ inputs.freshdesk_tag }}" >> $GITHUB_ENV
         echo "FRESHDESK_KEY=${{ inputs.freshdesk_key }}" >> $GITHUB_ENV
