@@ -36,6 +36,10 @@ inputs:
     required: true
     description: Name of company/client field in Github project to sync values from
     default: Company
+  github_iteration_field:
+    required: true
+    description: Name of iteration field in Github project to sync values from
+    default: Sprint
   type_label_map:
     required: true
     description: Mapping between Freshdesk ticket types and Github labels
