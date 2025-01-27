@@ -2,6 +2,7 @@ import requests
 import json
 import os
 import ast
+import datetime as dt
 from log_helper import app_log as log
 
 # OPTIONS:
@@ -14,6 +15,7 @@ project_number = os.environ.get("PROJECT")
 status_field = os.environ.get("STATUS_FIELD")
 priority_field = os.environ.get("PRIORITY_FIELD")
 company_field = os.environ.get("COMPANY_FIELD")
+iteration_field = os.environ.get("ITERATION_FIELD")
 type_label_map = os.environ.get("TYPE_LABELS")
 tag = os.environ.get("TAG")
 
@@ -201,6 +203,17 @@ def github_get_project_cards(after_cursor=None):
                                 }}
                             }}
                             }}
+                            ... on ProjectV2ItemFieldIterationValue {{
+                            title
+                            startDate
+                            duration
+                            field {{
+                                ... on ProjectV2IterationField {{
+                                id
+                                name
+                                }}
+                            }}
+                            }}
                         }}
                         }}
                     }}
@@ -234,6 +247,10 @@ def github_get_project_cards(after_cursor=None):
                         card_object[company_field] = f["text"]
                     if f["field"]["name"] == priority_field:
                         card_object[priority_field] = f["name"]
+                    if f["field"]["name"] == iteration_field:
+                        card_object[iteration_field] = f["startDate"]
+                        iterationend = dt.datetime.strptime(f["startDate"],"%Y-%m-%d") + dt.timedelta(days=f["duration"])
+                        card_object["iteration_end"] = iterationend.strftime("%Y-%m-%d")
             cards.append(card_object)
     if response["data"]["organization"]["projectV2"]["items"]["pageInfo"]["hasNextPage"]:
         cards = cards + github_get_project_cards(after_cursor=response["data"]["organization"]["projectV2"]["items"]["pageInfo"]["endCursor"])
@@ -432,7 +449,7 @@ def freshdesk_create_field(field:dict):
     url = f"https://{freshdesk_url}/api/v2/admin/ticket_fields"
     headers,auth = freshdesk_headers()
     response = requests.post(url=url,headers=headers,json=field,auth=auth)
-    if response.status_code==200:
+    if response.status_code==201:
         return(json.loads(response.content))
     else:
         log.error("[red]"+response.reason)
@@ -576,6 +593,20 @@ def freshdesk_update_ticket_from_project(card:dict,ticket:dict):
     if (card[status_field]!=ticket["custom_fields"]["cf_development_status"]):
         new_status = {"cf_development_status": card[status_field]}
         updated_ticket.update({"custom_fields": new_status})
+    try:
+        new_date = card[iteration_field]
+    except:
+        new_date = None
+    if (new_date!=ticket["custom_fields"]["cf_start_date"]):
+        new_date = {"cf_start_date": new_date}
+        updated_ticket.update({"custom_fields": new_date})
+    try:
+        new_date = card["iteration_end"]
+    except:
+        new_date = None
+    if (new_date!=ticket["custom_fields"]["cf_end_date"]):
+        new_date = {"cf_end_date": new_date}
+        updated_ticket.update({"custom_fields": new_date})
     if updated_ticket!={}:
         log.info("[yellow]Updating Freshdesk Ticket "+str(ticket["id"])+" "+str(updated_ticket))
         url = f"https://{freshdesk_url}/api/v2/tickets/{ticket["id"]}"
@@ -586,7 +617,6 @@ def freshdesk_update_ticket_from_project(card:dict,ticket:dict):
         else:
             log.error("[red]"+response.reason)
             log.error("[red]"+str(response.content))
-
 
 def get_create_fields(repos:dict):
     fields = freshdesk_get_fields()
@@ -690,8 +720,33 @@ def get_create_fields(repos:dict):
             updated_field = freshdesk_add_field_choice(field=field_response,field_choices=field_choices,new_value=repo)
             freshdesk_update_field(field_id=field_id,field=updated_field)
 
-    return fields, github_project_fields
+    if not next((field for field in fields if field["name"] == 'cf_start_date'),False):
+        field={
+            "label": "Start Date",
+            "label_for_customers": "Start Date",
+            "type": "custom_date",
+            "customers_can_edit": False,
+            "required_for_closure": False,
+            "required_for_agents": False,
+            "required_for_customers": False,
+            "displayed_to_customers": True
+        }
+        freshdesk_create_field(field=field)
 
+    if not next((field for field in fields if field["name"] == 'cf_end_date'),False):
+        field={
+            "label": "End Date",
+            "label_for_customers": "End Date",
+            "type": "custom_date",
+            "customers_can_edit": False,
+            "required_for_closure": False,
+            "required_for_agents": False,
+            "required_for_customers": False,
+            "displayed_to_customers": True
+        }
+        freshdesk_create_field(field=field)    
+
+    return fields, github_project_fields
 
 def create_update_github_issues(fd_fields,gh_fields:dict,repo:str,cards:dict):
     log.info("[green]Starting sync for Repository "+repo)
