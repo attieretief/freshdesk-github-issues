@@ -21,12 +21,20 @@ tag = os.environ.get("TAG")
 
 
 # A simple function to use requests.post to make the API call. Note the json= section.
-def github_run_query(query): 
-    request = requests.post('https://api.github.com/graphql', json={'query': query}, headers=github_graphql_header())
+def github_run_query(query):
+    request = requests.post(
+        "https://api.github.com/graphql",
+        json={"query": query},
+        headers=github_graphql_header(),
+    )
     if request.status_code == 200:
         return request.json()
     else:
-        raise Exception("Query failed to run by returning code of {}. {}".format(request.status_code, query))
+        raise Exception(
+            "Query failed to run by returning code of {}. {}".format(
+                request.status_code, query
+            )
+        )
 
 
 def github_graphql_header():
@@ -73,20 +81,20 @@ def github_get_project_fields():
     return fields
 
 
-def github_get_project_statuses(fields:dict):
+def github_get_project_statuses(fields: dict):
     for f in fields:
         if "name" in f:
-            if f["name"]==status_field:
+            if f["name"] == status_field:
                 options = []
                 for o in f["options"]:
                     options.append(o["name"])
                 return options
 
 
-def github_get_project_priorities(fields:dict):
+def github_get_project_priorities(fields: dict):
     for f in fields:
         if "name" in f:
-            if f["name"]==priority_field:
+            if f["name"] == priority_field:
                 options = []
                 for o in f["options"]:
                     option = {}
@@ -97,32 +105,32 @@ def github_get_project_priorities(fields:dict):
                 return options
 
 
-def github_get_priority_option_id(priority:str,fields:dict):
+def github_get_priority_option_id(priority: str, fields: dict):
     priority_options = github_get_project_priorities(fields=fields)
     option = next(opt for opt in priority_options if opt["name"] == priority)
-    if option!={}:
-        return option["id"],option["field_id"]
+    if option != {}:
+        return option["id"], option["field_id"]
 
 
-def github_get_company_field_id(fields:dict):
+def github_get_company_field_id(fields: dict):
     for f in fields:
         if "name" in f:
-            if f["name"]==company_field:
+            if f["name"] == company_field:
                 return f["id"]
 
 
 def github_get_members():
     url = f"https://api.github.com/orgs/{org}/members"
     auth = github_auth()
-    response = requests.get(url=url,headers=auth)
-    if response.status_code==200:
+    response = requests.get(url=url, headers=auth)
+    if response.status_code == 200:
         members = []
         for m in json.loads(response.content):
             members.append(m["login"])
         return members
     else:
-        log.error("[red]"+response.reason)
-        log.error("[red]"+str(response.content))
+        log.error("[red]" + response.reason)
+        log.error("[red]" + str(response.content))
 
 
 def github_get_repos():
@@ -132,13 +140,13 @@ def github_get_repos():
     repos = []
     morepages = True
     while morepages:
-        response = requests.get(url=url,headers=auth)
-        if response.status_code==200:
+        response = requests.get(url=url, headers=auth)
+        if response.status_code == 200:
             content = json.loads(response.content)
             for r in content:
                 if not r["archived"]:
-                    if language!='':
-                        if r["language"]=="AL":
+                    if language != "":
+                        if r["language"] == "AL":
                             repos.append(r["name"])
                     else:
                         repos.append(r["name"])
@@ -147,12 +155,12 @@ def github_get_repos():
             except:
                 morepages = False
         else:
-            log.error("[red]"+response.reason)
-            log.error("[red]"+str(response.content))
+            log.error("[red]" + response.reason)
+            log.error("[red]" + str(response.content))
     return repos
 
 
-def github_get_project_cards(after_cursor=None):
+def github_get_project_cards(after_cursor=""):
     log.info("[yellow]Getting Github Project Items")
     query = f"""
         {{
@@ -233,7 +241,9 @@ def github_get_project_cards(after_cursor=None):
     for card in response["data"]["organization"]["projectV2"]["items"]["edges"]:
         if card["node"]["content"]:
             card_object = {}
-            card_object["project_id"] = response["data"]["organization"]["projectV2"]["id"]
+            card_object["project_id"] = response["data"]["organization"]["projectV2"][
+                "id"
+            ]
             card_object["item_id"] = card["node"]["id"]
             card_object["title"] = card["node"]["content"]["title"]
             card_object["repository"] = card["node"]["content"]["repository"]["name"]
@@ -249,128 +259,154 @@ def github_get_project_cards(after_cursor=None):
                         card_object[priority_field] = f["name"]
                     if f["field"]["name"] == iteration_field:
                         card_object[iteration_field] = f["startDate"]
-                        iterationend = dt.datetime.strptime(f["startDate"],"%Y-%m-%d") + dt.timedelta(days=f["duration"])
+                        iterationend = dt.datetime.strptime(
+                            f["startDate"], "%Y-%m-%d"
+                        ) + dt.timedelta(days=f["duration"])
                         card_object["iteration_end"] = iterationend.strftime("%Y-%m-%d")
             cards.append(card_object)
-    if response["data"]["organization"]["projectV2"]["items"]["pageInfo"]["hasNextPage"]:
-        cards = cards + github_get_project_cards(after_cursor=response["data"]["organization"]["projectV2"]["items"]["pageInfo"]["endCursor"])
+    if response["data"]["organization"]["projectV2"]["items"]["pageInfo"][
+        "hasNextPage"
+    ]:
+        cards = cards + github_get_project_cards(
+            after_cursor=response["data"]["organization"]["projectV2"]["items"][
+                "pageInfo"
+            ]["endCursor"]
+        )
     return cards
 
 
-def map_type_label(type:str):
+def map_type_label(type: str):
     maplist = ast.literal_eval(type_label_map)
     for map in maplist:
         if type == map[0]:
             return map[1]
     return None
 
-def github_build_issue(ticket:dict):
+
+def github_build_issue(ticket: dict):
     issue = {}
     assignees = None
-    title = f"{ticket["custom_fields"]["cf_development_task_title"]} (FD#{ticket["id"]})"
+    title = (
+        f"{ticket["custom_fields"]["cf_development_task_title"]} (FD#{ticket["id"]})"
+    )
     body = f"{ticket["summary"]}\n\n<a href=https://{freshdesk_url}/a/tickets/{str(ticket['id'])}>Freshdeck Ticket #{str(ticket['id'])}</a>"
     label = [map_type_label(ticket["type"])]
-    if ticket["custom_fields"]["cf_assigned_developer"]!=None:
+    if ticket["custom_fields"]["cf_assigned_developer"] != None:
         assignees = [ticket["custom_fields"]["cf_assigned_developer"]]
     issue.update({"title": title})
     issue.update({"body": body})
     if assignees:
         issue.update({"assignees": assignees})
-    if label!=[None]:
+    if label != [None]:
         issue.update({"labels": label})
     return issue
 
 
-def github_create_issue(ticket:dict,repo:str):
+def github_create_issue(ticket: dict, repo: str):
     issue = github_build_issue(ticket)
-    if issue!={}:
-        log.info("[yellow]Creating Github Issue "+str(issue))
+    if issue != {}:
+        log.info("[yellow]Creating Github Issue " + str(issue))
         url = f"https://api.github.com/repos/{org}/{repo}/issues"
         auth = github_auth()
-        response = requests.post(url=url,headers=auth,json=issue)
-        if response.status_code==201:
+        response = requests.post(url=url, headers=auth, json=issue)
+        if response.status_code == 201:
             gh_issue = json.loads(response.content)
             return gh_issue
         else:
-            log.error("[red]"+response.reason)
-            log.error("[red]"+str(response.content))
+            log.error("[red]" + response.reason)
+            log.error("[red]" + str(response.content))
 
 
-def github_compare_issue_field(gh_issue:dict,field:str,value:str,updated_issue:dict):
+def github_compare_issue_field(
+    gh_issue: dict, field: str, value: str, updated_issue: dict
+):
     if field in gh_issue:
-        if field=='title':
-            if value!= gh_issue[field]:
+        if field == "title":
+            if value != gh_issue[field]:
                 updated_issue.update({field: value})
-        elif field=='body':
-            if gh_issue[field]!=None:
-                 existing_body = gh_issue[field]
+        elif field == "body":
+            if gh_issue[field] != None:
+                existing_body = gh_issue[field]
             else:
-                existing_body = ''
+                existing_body = ""
             if value not in existing_body:
                 existing_body = existing_body + f"<br><br>{value}"
                 updated_issue.update({field: existing_body})
-        elif field=='labels':
+        elif field == "labels":
             labelfound = False
             for l in gh_issue[field]:
-                if l["name"]==value:
+                if l["name"] == value:
                     labelfound = True
             if not labelfound:
                 updated_issue.update({field: [value]})
 
 
-def github_update_issue(ticket:dict,gh_issue:dict,repo:str,card:dict):
+def github_update_issue(ticket: dict, gh_issue: dict, repo: str, card: dict):
     fd_assignee = ticket["custom_fields"]["cf_assigned_developer"]
     try:
         gh_assignee = gh_issue["assignee"]["login"]
     except:
-        gh_assignee=None
-    if gh_assignee!=None:
-        if fd_assignee!=gh_assignee:
+        gh_assignee = None
+    if gh_assignee != None:
+        if fd_assignee != gh_assignee:
             card.update({"assignee": gh_assignee})
-    title = f"{ticket["custom_fields"]["cf_development_task_title"]} (FD#{ticket["id"]})"
+    title = (
+        f"{ticket["custom_fields"]["cf_development_task_title"]} (FD#{ticket["id"]})"
+    )
     body = f"<a href=https://{freshdesk_url}/a/tickets/{str(ticket['id'])}>Freshdeck Ticket #{str(ticket['id'])}</a>"
     label = map_type_label(ticket["type"])
     updated_issue = {}
-    github_compare_issue_field(gh_issue=gh_issue,field="title",value=title,updated_issue=updated_issue)
-    if label!=None:
-        github_compare_issue_field(gh_issue=gh_issue,field="labels",value=label,updated_issue=updated_issue)
-    github_compare_issue_field(gh_issue=gh_issue,field="body",value=body,updated_issue=updated_issue)
-    if updated_issue!={}:
-        log.info("[yellow]Updating Github Issue "+str(gh_issue["number"])+" "+str(updated_issue))
+    github_compare_issue_field(
+        gh_issue=gh_issue, field="title", value=title, updated_issue=updated_issue
+    )
+    if label != None:
+        github_compare_issue_field(
+            gh_issue=gh_issue, field="labels", value=label, updated_issue=updated_issue
+        )
+    github_compare_issue_field(
+        gh_issue=gh_issue, field="body", value=body, updated_issue=updated_issue
+    )
+    if updated_issue != {}:
+        log.info(
+            "[yellow]Updating Github Issue "
+            + str(gh_issue["number"])
+            + " "
+            + str(updated_issue)
+        )
         url = f"https://api.github.com/repos/{org}/{repo}/issues/{gh_issue['number']}"
         auth = github_auth()
-        response = requests.patch(url=url,headers=auth,json=updated_issue)
-        if response.status_code==200:
+        response = requests.patch(url=url, headers=auth, json=updated_issue)
+        if response.status_code == 200:
             gh_issue = json.loads(response.content)
             return card
         else:
-            log.error("[red]"+response.reason)
-            log.error("[red]"+str(response.content))
+            log.error("[red]" + response.reason)
+            log.error("[red]" + str(response.content))
     else:
         return card
 
 
-def github_get_issue(gh_issue_number:str,repo:str):
-    log.info("[yellow]Getting Github Issue "+str(gh_issue_number))
+def github_get_issue(gh_issue_number: str, repo: str):
+    log.info("[yellow]Getting Github Issue " + str(gh_issue_number))
     url = f"https://api.github.com/repos/{org}/{repo}/issues/{gh_issue_number}"
     auth = github_auth()
-    response = requests.get(url=url,headers=auth)
-    if response.status_code==200:
+    response = requests.get(url=url, headers=auth)
+    if response.status_code == 200:
         gh_issue = json.loads(response.content)
         return gh_issue
     else:
-        log.error("[red]"+response.reason)
-        log.error("[red]"+str(response.content))
+        log.error("[red]" + response.reason)
+        log.error("[red]" + str(response.content))
 
 
-def github_update_project_card(card:dict,company:str,priority:str,fields:dict):
-    card_company=''
+def github_update_project_card(card: dict, company: str, priority: str, fields: dict):
+    card_company = ""
     try:
         card_company = card[company_field]
     except:
-        card_company = ''
-    if company!=card_company:
-        log.info("[yellow]Updating Github Project Item "+str(card))
+        card_company = ""
+    if company != card_company:
+        log.info("[yellow]Updating Github Project Item " + str(card))
         card_id = card["item_id"]
         project_id = card["project_id"]
         field_id = github_get_company_field_id(fields=fields)
@@ -383,18 +419,25 @@ def github_update_project_card(card:dict,company:str,priority:str,fields:dict):
                     clientMutationId
                     }
                 }
-        """ % (project_id,card_id,field_id,company)
+        """ % (
+            project_id,
+            card_id,
+            field_id,
+            company,
+        )
         response = github_run_query(query)
-    card_priority=''
+    card_priority = ""
     try:
         card_priority = card[priority_field]
     except:
-        card_priority = ''
-    if priority!=card_priority:
-        log.info("[yellow]Updating Github Project Item "+str(card))
+        card_priority = ""
+    if priority != card_priority:
+        log.info("[yellow]Updating Github Project Item " + str(card))
         card_id = card["item_id"]
         project_id = card["project_id"]
-        priority_option_id,field_id = github_get_priority_option_id(priority=priority,fields=fields)
+        priority_option_id, field_id = github_get_priority_option_id(
+            priority=priority, fields=fields
+        )
         # update priority field
         query = """
             mutation {
@@ -404,90 +447,95 @@ def github_update_project_card(card:dict,company:str,priority:str,fields:dict):
                     clientMutationId
                     }
             }
-        """ % (project_id,card_id,field_id,priority_option_id)
+        """ % (
+            project_id,
+            card_id,
+            field_id,
+            priority_option_id,
+        )
         response = github_run_query(query)
 
 
 def freshdesk_headers():
     header = {"Content-Type": "application/json"}
-    auth = (freshdesk_key,"X")
-    return header,auth
+    auth = (freshdesk_key, "X")
+    return header, auth
 
 
 def freshdesk_get_fields():
     log.info("[yellow]Getting Freshdesk Fields")
     url = f"https://{freshdesk_url}/api/v2/admin/ticket_fields"
-    headers,auth = freshdesk_headers()
-    response = requests.get(url=url,headers=headers,auth=auth)
-    if response.status_code==200:
-        return(json.loads(response.content))
+    headers, auth = freshdesk_headers()
+    response = requests.get(url=url, headers=headers, auth=auth)
+    if response.status_code == 200:
+        return json.loads(response.content)
     else:
-        log.error("[red]"+response.reason)
-        log.error("[red]"+str(response.content))
+        log.error("[red]" + response.reason)
+        log.error("[red]" + str(response.content))
 
 
-def freshdesk_get_field_id(field_name:str,fields: list):
+def freshdesk_get_field_id(field_name: str, fields: list):
     for f in fields:
-        if f["name"]==field_name:
+        if f["name"] == field_name:
             return f["id"]
 
 
-def freshdesk_get_company_name(ticket:dict):
+def freshdesk_get_company_name(ticket: dict):
     if ticket["company_id"]:
         url = f"https://{freshdesk_url}//api/v2/companies/{ticket["company_id"]}"
-        headers,auth = freshdesk_headers()
-        response = requests.get(url=url,headers=headers,auth=auth)
-        if response.status_code==200:
-            return(json.loads(response.content)["name"])
+        headers, auth = freshdesk_headers()
+        response = requests.get(url=url, headers=headers, auth=auth)
+        if response.status_code == 200:
+            return json.loads(response.content)["name"]
         else:
-            log.error("[red]"+response.reason)
-            log.error("[red]"+str(response.content))
+            log.error("[red]" + response.reason)
+            log.error("[red]" + str(response.content))
 
 
-def freshdesk_create_field(field:dict):
-    log.info("[yellow]Creating Freshdesk Field "+str(field))
+def freshdesk_create_field(field: dict):
+    log.info("[yellow]Creating Freshdesk Field " + str(field))
     url = f"https://{freshdesk_url}/api/v2/admin/ticket_fields"
-    headers,auth = freshdesk_headers()
-    response = requests.post(url=url,headers=headers,json=field,auth=auth)
-    if response.status_code==201:
-        return(json.loads(response.content))
+    headers, auth = freshdesk_headers()
+    response = requests.post(url=url, headers=headers, json=field, auth=auth)
+    if response.status_code == 201:
+        return json.loads(response.content)
     else:
-        log.error("[red]"+response.reason)
+        log.error("[red]" + response.reason)
 
 
-def freshdesk_view_field(field_name:str,fields:list):
-    field_id = freshdesk_get_field_id(field_name,fields)
+def freshdesk_view_field(field_name: str, fields: list):
+    field_id = freshdesk_get_field_id(field_name, fields)
     url = f"https://{freshdesk_url}/api/v2/admin/ticket_fields/{field_id}"
-    headers,auth = freshdesk_headers()
-    response = requests.get(url=url,headers=headers,auth=auth)
-    if response.status_code==200:
-        return(json.loads(response.content))
+    headers, auth = freshdesk_headers()
+    response = requests.get(url=url, headers=headers, auth=auth)
+    if response.status_code == 200:
+        return json.loads(response.content)
     else:
-        log.error("[red]"+response.reason)
-        log.error("[red]"+str(response.content))
+        log.error("[red]" + response.reason)
+        log.error("[red]" + str(response.content))
 
 
-def freshdesk_get_field_choices(response:dict):
+def freshdesk_get_field_choices(response: dict):
     return response["choices"]
 
 
-def freshdesk_field_choice_exists(field_choices:dict,choice:str):
+def freshdesk_field_choice_exists(field_choices: dict, choice: str):
     for c in field_choices:
         if choice in c["value"]:
             return True
 
 
-def freshdesk_add_field_choice(field:dict,field_choices:list,new_value:str):
+def freshdesk_add_field_choice(field: dict, field_choices: list, new_value: str):
     if not field_choices:
         field_choices = []
     max_position = 0
     for c in field_choices:
-        if c["position"]>max_position:
+        if c["position"] > max_position:
             max_position = c["position"]
     new_choice = {}
     new_choice.update({"label": new_value})
     new_choice.update({"value": new_value})
-    new_choice.update({"position": max_position+1})
+    new_choice.update({"position": max_position + 1})
     field_choices = []
     field_choices.append(new_choice)
     updated_field = {}
@@ -496,133 +544,165 @@ def freshdesk_add_field_choice(field:dict,field_choices:list,new_value:str):
     return updated_field
 
 
-def freshdesk_update_field(field_id:int,field:dict):
-    log.info("[yellow]Updating Freshdesk Field "+str(field))
+def freshdesk_update_field(field_id: int, field: dict):
+    log.info("[yellow]Updating Freshdesk Field " + str(field))
     url = f"https://{freshdesk_url}/api/v2/admin/ticket_fields/{field_id}"
-    headers,auth = freshdesk_headers()
-    response = requests.put(url=url,headers=headers,json=field,auth=auth)
-    if response.status_code==200:
-        return(json.loads(response.content))
+    headers, auth = freshdesk_headers()
+    response = requests.put(url=url, headers=headers, json=field, auth=auth)
+    if response.status_code == 200:
+        return json.loads(response.content)
     else:
-        log.error("[red]"+response.reason)
-        log.error("[red]"+str(response.content))
+        log.error("[red]" + response.reason)
+        log.error("[red]" + str(response.content))
 
 
-def freshdesk_resolve_priority(priority:str,fields:dict):
-    field_response = freshdesk_view_field(field_name='priority',fields=fields)
+def freshdesk_resolve_priority(priority: str, fields: dict):
+    field_response = freshdesk_view_field(field_name="priority", fields=fields)
     field_choices = freshdesk_get_field_choices(response=field_response)
-    return(next(ch for ch in field_choices if ch["value"] == priority)["label"])
+    return next(ch for ch in field_choices if ch["value"] == priority)["label"]
 
 
-def freshdesk_get_tickets(repo:str):
+def freshdesk_get_tickets(repo: str):
     log.info("[yellow]Getting Freshdesk Tickets")
-    url = 'https://' + freshdesk_url + '/api/v2/search/tickets?query="(status:<3 OR status:>6) AND tag:' + "'" + tag + "'" + ' AND cf_repository:' + "'" + repo + "'" + '"'
-    headers,auth = freshdesk_headers()
-    response = requests.get(url=url,headers=headers,auth=auth)
-    if response.status_code==200:
+    url = (
+        "https://"
+        + freshdesk_url
+        + '/api/v2/search/tickets?query="(status:<3 OR status:>6) AND tag:'
+        + "'"
+        + tag
+        + "'"
+        + " AND cf_repository:"
+        + "'"
+        + repo
+        + "'"
+        + '"'
+    )
+    headers, auth = freshdesk_headers()
+    response = requests.get(url=url, headers=headers, auth=auth)
+    if response.status_code == 200:
         tickets = json.loads(response.content)["results"]
-        log.info("[green]Freshdesk Tickets found: "+str(len(tickets)))
-        return(tickets)
+        log.info("[green]Freshdesk Tickets found: " + str(len(tickets)))
+        return tickets
     else:
-        log.error("[red]"+response.reason)
-        log.error("[red]"+str(response.content))
+        log.error("[red]" + response.reason)
+        log.error("[red]" + str(response.content))
 
 
 def freshdesk_get_ticket_summary(ticket: dict):
     log.info("[yellow]Getting Freshdesk Ticket Summary")
-    url = 'https://' + freshdesk_url + '/api/v2/tickets/'+ str(ticket["id"]) + '/summary'
-    headers,auth = freshdesk_headers()
-    response = requests.get(url=url,headers=headers,auth=auth)
-    if response.status_code==200:
+    url = (
+        "https://" + freshdesk_url + "/api/v2/tickets/" + str(ticket["id"]) + "/summary"
+    )
+    headers, auth = freshdesk_headers()
+    response = requests.get(url=url, headers=headers, auth=auth)
+    if response.status_code == 200:
         summary = json.loads(response.content)["body"]
         log.info("[green]Freshdesk Ticket Summary found")
         ticket.update({"summary": summary})
-        return(ticket)
+        return ticket
     else:
-        log.info("[red]"+response.reason)
+        log.info("[red]" + response.reason)
         ticket.update({"summary": ""})
-        return(ticket)
+        return ticket
 
 
-def freshdesk_update_ticket_ghissue(ticket:dict,gh_issue:dict):
+def freshdesk_update_ticket_ghissue(ticket: dict, gh_issue: dict):
     updated_ticket = {}
     new_issue_number = {"cf_github_issue": str(gh_issue["number"])}
     updated_ticket.update({"custom_fields": new_issue_number})
-    if updated_ticket!={}:
-        log.info("[yellow]Updating Freshdesk Ticket "+str(ticket["id"])+" "+str(updated_ticket))
+    if updated_ticket != {}:
+        log.info(
+            "[yellow]Updating Freshdesk Ticket "
+            + str(ticket["id"])
+            + " "
+            + str(updated_ticket)
+        )
         url = f"https://{freshdesk_url}/api/v2/tickets/{ticket["id"]}"
-        headers,auth = freshdesk_headers()
-        response = requests.put(url=url,headers=headers,json=updated_ticket,auth=auth)
-        if response.status_code==200:
-            return(json.loads(response.content))
+        headers, auth = freshdesk_headers()
+        response = requests.put(
+            url=url, headers=headers, json=updated_ticket, auth=auth
+        )
+        if response.status_code == 200:
+            return json.loads(response.content)
         else:
-            log.error("[red]"+response.reason)
-            log.error("[red]"+str(response.content))
+            log.error("[red]" + response.reason)
+            log.error("[red]" + str(response.content))
 
 
-def freshdesk_add_note(gh_issue:dict,ticket_id,repo:str):
+def freshdesk_add_note(gh_issue: dict, ticket_id, repo: str):
     log.info("[yellow]Posting Freshdesk Note")
     try:
         assignee = gh_issue["user"]["login"]
     except:
-        assignee = ''
+        assignee = ""
     new_note_text = f'<html><h2 style="color: red;">Github Notification</h2><p>{assignee} created <a href="{gh_issue["html_url"]}">#{gh_issue["number"]}</a> at {gh_issue["created_at"]} in <a href="{gh_issue["repository_url"]}">{repo}</a></p></html>'
     note = {}
     note.update({"body": new_note_text})
-    note.update({"private": True })
+    note.update({"private": True})
     url = f"https://{freshdesk_url}/api/v2/tickets/{ticket_id}/notes"
-    headers,auth = freshdesk_headers()
-    response = requests.post(url=url,headers=headers,json=note,auth=auth)
-    if response.status_code==201:
-        return(json.loads(response.content))
+    headers, auth = freshdesk_headers()
+    response = requests.post(url=url, headers=headers, json=note, auth=auth)
+    if response.status_code == 201:
+        return json.loads(response.content)
     else:
-        log.error("[red]"+response.reason)
-        log.error("[red]"+str(response.content))
+        log.error("[red]" + response.reason)
+        log.error("[red]" + str(response.content))
 
 
-def freshdesk_update_ticket_from_project(card:dict,ticket:dict):
+def freshdesk_update_ticket_from_project(card: dict, ticket: dict):
     updated_ticket = {}
     try:
         new_ass = card["assignee"]
     except:
         new_ass = None
-    if (new_ass!=ticket["custom_fields"]["cf_assigned_developer"]):
-        if new_ass!=None:
+    if new_ass != ticket["custom_fields"]["cf_assigned_developer"]:
+        if new_ass != None:
             new_ass = {"cf_assigned_developer": new_ass}
             updated_ticket.update({"custom_fields": new_ass})
-    if (card[status_field]!=ticket["custom_fields"]["cf_development_status"]):
+    if card[status_field] != ticket["custom_fields"]["cf_development_status"]:
         new_status = {"cf_development_status": card[status_field]}
         updated_ticket.update({"custom_fields": new_status})
     try:
         new_date = card[iteration_field]
     except:
         new_date = None
-    if (new_date!=ticket["custom_fields"]["cf_start_date"]):
+    if new_date != ticket["custom_fields"]["cf_start_date"]:
         new_date = {"cf_start_date": new_date}
         updated_ticket.update({"custom_fields": new_date})
     try:
         new_date = card["iteration_end"]
     except:
         new_date = None
-    if (new_date!=ticket["custom_fields"]["cf_end_date"]):
+    if new_date != ticket["custom_fields"]["cf_end_date"]:
         new_date = {"cf_end_date": new_date}
         updated_ticket.update({"custom_fields": new_date})
-    if updated_ticket!={}:
-        log.info("[yellow]Updating Freshdesk Ticket "+str(ticket["id"])+" "+str(updated_ticket))
+    if updated_ticket != {}:
+        log.info(
+            "[yellow]Updating Freshdesk Ticket "
+            + str(ticket["id"])
+            + " "
+            + str(updated_ticket)
+        )
         url = f"https://{freshdesk_url}/api/v2/tickets/{ticket["id"]}"
-        headers,auth = freshdesk_headers()
-        response = requests.put(url=url,headers=headers,json=updated_ticket,auth=auth)
-        if response.status_code==200:
-            return(json.loads(response.content))
+        headers, auth = freshdesk_headers()
+        response = requests.put(
+            url=url, headers=headers, json=updated_ticket, auth=auth
+        )
+        if response.status_code == 200:
+            return json.loads(response.content)
         else:
-            log.error("[red]"+response.reason)
-            log.error("[red]"+str(response.content))
+            log.error("[red]" + response.reason)
+            log.error("[red]" + str(response.content))
 
-def get_create_fields(repos:dict):
+
+def get_create_fields(repos: dict):
     fields = freshdesk_get_fields()
     github_project_fields = github_get_project_fields()
-    
-    if not next((field for field in fields if field["name"] == 'cf_development_task_title'),False):
+
+    if not next(
+        (field for field in fields if field["name"] == "cf_development_task_title"),
+        False,
+    ):
         field = {
             "label": "Task Title",
             "label_for_customers": "Task Title",
@@ -631,12 +711,14 @@ def get_create_fields(repos:dict):
             "required_for_closure": False,
             "required_for_agents": False,
             "required_for_customers": False,
-            "displayed_to_customers": True
+            "displayed_to_customers": True,
         }
         freshdesk_create_field(field=field)
 
-    if not next((field for field in fields if field["name"] == 'cf_github_issue'),False):
-        field={
+    if not next(
+        (field for field in fields if field["name"] == "cf_github_issue"), False
+    ):
+        field = {
             "label": "Github Issue",
             "label_for_customers": "Github Issue",
             "type": "custom_text",
@@ -644,12 +726,14 @@ def get_create_fields(repos:dict):
             "required_for_closure": False,
             "required_for_agents": False,
             "required_for_customers": False,
-            "displayed_to_customers": False
+            "displayed_to_customers": False,
         }
         freshdesk_create_field(field=field)
-	
-    if not next((field for field in fields if field["name"] == 'cf_assigned_developer'),False):
-        field={
+
+    if not next(
+        (field for field in fields if field["name"] == "cf_assigned_developer"), False
+    ):
+        field = {
             "label": "Assigned Developer",
             "label_for_customers": "Assigned Developer",
             "type": "custom_dropdown",
@@ -657,24 +741,32 @@ def get_create_fields(repos:dict):
             "required_for_closure": False,
             "required_for_agents": False,
             "required_for_customers": False,
-            "displayed_to_customers": False
+            "displayed_to_customers": False,
         }
         field_response = freshdesk_create_field(field)
     else:
-        field_response = freshdesk_view_field(field_name='cf_assigned_developer',fields=fields)
+        field_response = freshdesk_view_field(
+            field_name="cf_assigned_developer", fields=fields
+        )
 
     field_id = field_response["id"]
     field_choices = freshdesk_get_field_choices(response=field_response)
     members = github_get_members()
     updated_field = None
     for member in members:
-        if not freshdesk_field_choice_exists(field_choices=field_choices,choice=member):
-            updated_field = freshdesk_add_field_choice(field=field_response,field_choices=field_choices,new_value=member)
+        if not freshdesk_field_choice_exists(
+            field_choices=field_choices, choice=member
+        ):
+            updated_field = freshdesk_add_field_choice(
+                field=field_response, field_choices=field_choices, new_value=member
+            )
     if updated_field:
-        freshdesk_update_field(field_id=field_id,field=updated_field)
+        freshdesk_update_field(field_id=field_id, field=updated_field)
 
-    if not next((field for field in fields if field["name"] == 'cf_development_status'),False):
-        field={
+    if not next(
+        (field for field in fields if field["name"] == "cf_development_status"), False
+    ):
+        field = {
             "label": "Development Status",
             "label_for_customers": "Development Status",
             "type": "custom_dropdown",
@@ -682,24 +774,30 @@ def get_create_fields(repos:dict):
             "required_for_closure": False,
             "required_for_agents": False,
             "required_for_customers": False,
-            "displayed_to_customers": False
+            "displayed_to_customers": False,
         }
         field_response = freshdesk_create_field(field)
     else:
-        field_response = freshdesk_view_field(field_name='cf_development_status',fields=fields)
+        field_response = freshdesk_view_field(
+            field_name="cf_development_status", fields=fields
+        )
 
     field_id = field_response["id"]
     field_choices = freshdesk_get_field_choices(response=field_response)
     statuses = github_get_project_statuses(github_project_fields)
     updated_field = None
     for status in statuses:
-        if not freshdesk_field_choice_exists(field_choices=field_choices,choice=status):
-            updated_field = freshdesk_add_field_choice(field=field_response,field_choices=field_choices,new_value=status)
+        if not freshdesk_field_choice_exists(
+            field_choices=field_choices, choice=status
+        ):
+            updated_field = freshdesk_add_field_choice(
+                field=field_response, field_choices=field_choices, new_value=status
+            )
     if updated_field:
-        freshdesk_update_field(field_id=field_id,field=updated_field)
+        freshdesk_update_field(field_id=field_id, field=updated_field)
 
-    if not next((field for field in fields if field["name"] == 'cf_repository'),False):
-        field={
+    if not next((field for field in fields if field["name"] == "cf_repository"), False):
+        field = {
             "label": "Repository",
             "label_for_customers": "Repository",
             "type": "custom_dropdown",
@@ -707,21 +805,23 @@ def get_create_fields(repos:dict):
             "required_for_closure": False,
             "required_for_agents": False,
             "required_for_customers": False,
-            "displayed_to_customers": False
+            "displayed_to_customers": False,
         }
         field_response = freshdesk_create_field(updated_field)
     else:
-        field_response = freshdesk_view_field(field_name='cf_repository',fields=fields)
+        field_response = freshdesk_view_field(field_name="cf_repository", fields=fields)
 
     field_id = field_response["id"]
     field_choices = freshdesk_get_field_choices(response=field_response)
     for repo in repos:
-        if not freshdesk_field_choice_exists(field_choices=field_choices,choice=repo):
-            updated_field = freshdesk_add_field_choice(field=field_response,field_choices=field_choices,new_value=repo)
-            freshdesk_update_field(field_id=field_id,field=updated_field)
+        if not freshdesk_field_choice_exists(field_choices=field_choices, choice=repo):
+            updated_field = freshdesk_add_field_choice(
+                field=field_response, field_choices=field_choices, new_value=repo
+            )
+            freshdesk_update_field(field_id=field_id, field=updated_field)
 
-    if not next((field for field in fields if field["name"] == 'cf_start_date'),False):
-        field={
+    if not next((field for field in fields if field["name"] == "cf_start_date"), False):
+        field = {
             "label": "Start Date",
             "label_for_customers": "Start Date",
             "type": "custom_date",
@@ -729,12 +829,12 @@ def get_create_fields(repos:dict):
             "required_for_closure": False,
             "required_for_agents": False,
             "required_for_customers": False,
-            "displayed_to_customers": True
+            "displayed_to_customers": True,
         }
         freshdesk_create_field(field=field)
 
-    if not next((field for field in fields if field["name"] == 'cf_end_date'),False):
-        field={
+    if not next((field for field in fields if field["name"] == "cf_end_date"), False):
+        field = {
             "label": "End Date",
             "label_for_customers": "End Date",
             "type": "custom_date",
@@ -742,32 +842,50 @@ def get_create_fields(repos:dict):
             "required_for_closure": False,
             "required_for_agents": False,
             "required_for_customers": False,
-            "displayed_to_customers": True
+            "displayed_to_customers": True,
         }
-        freshdesk_create_field(field=field)    
+        freshdesk_create_field(field=field)
 
     return fields, github_project_fields
 
-def create_update_github_issues(fd_fields,gh_fields:dict,repo:str,cards:dict):
-    log.info("[green]Starting sync for Repository "+repo)
+
+def create_update_github_issues(fd_fields, gh_fields: dict, repo: str, cards: dict):
+    log.info("[green]Starting sync for Repository " + repo)
     tickets = freshdesk_get_tickets(repo)
     for t in tickets:
         t = freshdesk_get_ticket_summary(t)
-        if t["custom_fields"]["cf_github_issue"]==None:
-            if (t["custom_fields"]["cf_development_task_title"]!=None) and (t["custom_fields"]["cf_repository"]!=None):
-                gh_issue = github_create_issue(t,repo)
-                if gh_issue!={}:
-                    freshdesk_update_ticket_ghissue(ticket=t,gh_issue=gh_issue)
-                    freshdesk_add_note(gh_issue=gh_issue,ticket_id=t["id"],repo=repo)
+        if t["custom_fields"]["cf_github_issue"] == None:
+            if (t["custom_fields"]["cf_development_task_title"] != None) and (
+                t["custom_fields"]["cf_repository"] != None
+            ):
+                gh_issue = github_create_issue(t, repo)
+                if gh_issue != {}:
+                    freshdesk_update_ticket_ghissue(ticket=t, gh_issue=gh_issue)
+                    freshdesk_add_note(gh_issue=gh_issue, ticket_id=t["id"], repo=repo)
         else:
-            gh_issue = github_get_issue(t["custom_fields"]["cf_github_issue"],repo)
+            gh_issue = github_get_issue(t["custom_fields"]["cf_github_issue"], repo)
             if gh_issue:
-                card = next((c for c in cards if (c["issue_number"] == gh_issue["number"]) and (c["repository"] == repo)),False)
+                card = next(
+                    (
+                        c
+                        for c in cards
+                        if (c["issue_number"] == gh_issue["number"])
+                        and (c["repository"] == repo)
+                    ),
+                    False,
+                )
                 if card:
-                    newcard = github_update_issue(t,gh_issue,repo,card)
-                    github_update_project_card(card=newcard,company=freshdesk_get_company_name(ticket=t),priority=freshdesk_resolve_priority(t["priority"],fields=fd_fields),fields=gh_fields)
-                    freshdesk_update_ticket_from_project(card=newcard,ticket=t)
-    log.info("[green]Ending sync for Repository "+repo)
+                    newcard = github_update_issue(t, gh_issue, repo, card)
+                    github_update_project_card(
+                        card=newcard,
+                        company=freshdesk_get_company_name(ticket=t),
+                        priority=freshdesk_resolve_priority(
+                            t["priority"], fields=fd_fields
+                        ),
+                        fields=gh_fields,
+                    )
+                    freshdesk_update_ticket_from_project(card=newcard, ticket=t)
+    log.info("[green]Ending sync for Repository " + repo)
 
 
 if __name__ == "__main__":
@@ -775,4 +893,4 @@ if __name__ == "__main__":
     cards = github_get_project_cards()
     fd_fields, gh_fields = get_create_fields(repos)
     for repo in repos:
-        create_update_github_issues(fd_fields,gh_fields,repo,cards)
+        create_update_github_issues(fd_fields, gh_fields, repo, cards)
