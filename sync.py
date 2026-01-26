@@ -635,7 +635,7 @@ def freshdesk_add_note(gh_issue: dict, ticket_id, repo: str):
         assignee = gh_issue["user"]["login"]
     except:
         assignee = ""
-    new_note_text = f'<html><h2 style="color: red;">Github Notification</h2><p>{assignee} created <a href="{gh_issue["html_url"]}">#{gh_issue["number"]}</a> at {gh_issue["created_at"]} in <a href="{gh_issue["repository_url"]}">{repo}</a></p></html>'
+    new_note_text = f'<html><h2 style="color: red;">Github Notification</h2><p>{assignee} created <a href="{gh_issue["html_url"]}">#{gh_issue["number"]}</a> at {gh_issue["created_at"]} in <a href="{gh_issue["repository_url"].replace("api.github.com/repos", "github.com")}">{repo}</a></p></html>'
     note = {}
     note.update({"body": new_note_text})
     note.update({"private": True})
