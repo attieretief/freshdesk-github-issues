@@ -480,13 +480,21 @@ def freshdesk_get_field_id(field_name: str, fields: list):
             return f["id"]
 
 
+_company_name_cache: dict = {}
+
+
 def freshdesk_get_company_name(ticket: dict):
     if ticket["company_id"]:
-        url = f"https://{freshdesk_url}//api/v2/companies/{ticket["company_id"]}"
+        company_id = ticket["company_id"]
+        if company_id in _company_name_cache:
+            return _company_name_cache[company_id]
+        url = f"https://{freshdesk_url}//api/v2/companies/{company_id}"
         headers, auth = freshdesk_headers()
         response = requests.get(url=url, headers=headers, auth=auth)
         if response.status_code == 200:
-            return json.loads(response.content)["name"]
+            name = json.loads(response.content)["name"]
+            _company_name_cache[company_id] = name
+            return name
         else:
             log.error("[red]" + response.reason)
             log.error("[red]" + str(response.content))
@@ -556,9 +564,14 @@ def freshdesk_update_field(field_id: int, field: dict):
         log.error("[red]" + str(response.content))
 
 
+_priority_field_cache: dict | None = None
+
+
 def freshdesk_resolve_priority(priority: str, fields: dict):
-    field_response = freshdesk_view_field(field_name="priority", fields=fields)
-    field_choices = freshdesk_get_field_choices(response=field_response)
+    global _priority_field_cache
+    if _priority_field_cache is None:
+        _priority_field_cache = freshdesk_view_field(field_name="priority", fields=fields)
+    field_choices = freshdesk_get_field_choices(response=_priority_field_cache)
     return next(ch for ch in field_choices if ch["value"] == priority)["label"]
 
 
@@ -853,11 +866,11 @@ def create_update_github_issues(fd_fields, gh_fields: dict, repo: str, cards: di
     log.info("[green]Starting sync for Repository " + repo)
     tickets = freshdesk_get_tickets(repo)
     for t in tickets:
-        t = freshdesk_get_ticket_summary(t)
         if t["custom_fields"]["cf_github_issue"] == None:
             if (t["custom_fields"]["cf_development_task_title"] != None) and (
                 t["custom_fields"]["cf_repository"] != None
             ):
+                t = freshdesk_get_ticket_summary(t)
                 gh_issue = github_create_issue(t, repo)
                 if gh_issue != {}:
                     freshdesk_update_ticket_ghissue(ticket=t, gh_issue=gh_issue)
