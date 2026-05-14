@@ -717,9 +717,9 @@ def freshdesk_update_ticket_from_project(card: dict, ticket: dict):
         if new_ass != None:
             new_ass = {"cf_assigned_developer": new_ass}
             updated_ticket.update({"custom_fields": new_ass})
-    if card[status_field] != ticket["custom_fields"]["cf_development_status"]:
-        new_status = {"cf_development_status": card[status_field]}
-        updated_ticket.update({"custom_fields": new_status})
+    new_status = card.get(status_field)
+    if new_status and new_status != ticket["custom_fields"]["cf_development_status"]:
+        updated_ticket.update({"custom_fields": {"cf_development_status": new_status}})
     try:
         new_date = card[iteration_field]
     except:
