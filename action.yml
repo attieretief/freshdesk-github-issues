@@ -44,6 +44,10 @@ inputs:
     required: true
     description: Mapping between Freshdesk ticket types and Github labels
     default: "[['Issue','bug'],['Change Request','enhancement']]"
+  sync_fields:
+    required: false
+    description: When 'true', verify/create Freshdesk custom fields and field choices. Defaults to false to reduce API usage on scheduled runs.
+    default: 'false'
 
 runs:
   using: 'composite'
@@ -69,6 +73,7 @@ runs:
         echo "TAG=${{ inputs.freshdesk_tag }}" >> $GITHUB_ENV
         echo "FRESHDESK_KEY=${{ inputs.freshdesk_key }}" >> $GITHUB_ENV
         echo "FRESHDESK_URL=${{ inputs.freshdesk_domain }}" >> $GITHUB_ENV
+        echo "SYNC_FIELDS=${{ inputs.sync_fields }}" >> $GITHUB_ENV
       shell: bash
     - name: Synchronise
       id: sync

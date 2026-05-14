@@ -2,6 +2,8 @@ import requests
 import json
 import os
 import ast
+import sys
+import time
 import datetime as dt
 from log_helper import app_log as log
 
@@ -462,11 +464,54 @@ def freshdesk_headers():
     return header, auth
 
 
+_freshdesk_rate_limited = False
+
+
+def _rate_limited_response():
+    resp = requests.Response()
+    resp.status_code = 429
+    resp.reason = "Rate limited (short-circuited)"
+    resp._content = b""
+    return resp
+
+
+def freshdesk_request(method: str, url: str, **kwargs):
+    global _freshdesk_rate_limited
+    if _freshdesk_rate_limited:
+        return _rate_limited_response()
+    max_retries = 2
+    max_wait = 120
+    response = None
+    for attempt in range(max_retries + 1):
+        response = requests.request(method, url, **kwargs)
+        if response.status_code != 429:
+            return response
+        if attempt == max_retries:
+            log.error("[red]Freshdesk rate limit not cleared after retries")
+            _freshdesk_rate_limited = True
+            return response
+        try:
+            retry_after = int(response.headers.get("Retry-After", "60"))
+        except (TypeError, ValueError):
+            retry_after = 60
+        if retry_after > max_wait:
+            log.error(
+                f"[red]Freshdesk Retry-After={retry_after}s exceeds max wait {max_wait}s; aborting further calls"
+            )
+            _freshdesk_rate_limited = True
+            return response
+        log.info(
+            f"[yellow]Freshdesk 429; sleeping {retry_after}s (retry {attempt + 1}/{max_retries})"
+        )
+        time.sleep(retry_after)
+    return response
+
+
 def freshdesk_get_fields():
     log.info("[yellow]Getting Freshdesk Fields")
     url = f"https://{freshdesk_url}/api/v2/admin/ticket_fields"
     headers, auth = freshdesk_headers()
-    response = requests.get(url=url, headers=headers, auth=auth)
+    response = freshdesk_request("GET", url, headers=headers, auth=auth)
     if response.status_code == 200:
         return json.loads(response.content)
     else:
@@ -490,7 +535,7 @@ def freshdesk_get_company_name(ticket: dict):
             return _company_name_cache[company_id]
         url = f"https://{freshdesk_url}//api/v2/companies/{company_id}"
         headers, auth = freshdesk_headers()
-        response = requests.get(url=url, headers=headers, auth=auth)
+        response = freshdesk_request("GET", url, headers=headers, auth=auth)
         if response.status_code == 200:
             name = json.loads(response.content)["name"]
             _company_name_cache[company_id] = name
@@ -504,7 +549,7 @@ def freshdesk_create_field(field: dict):
     log.info("[yellow]Creating Freshdesk Field " + str(field))
     url = f"https://{freshdesk_url}/api/v2/admin/ticket_fields"
     headers, auth = freshdesk_headers()
-    response = requests.post(url=url, headers=headers, json=field, auth=auth)
+    response = freshdesk_request("POST", url, headers=headers, json=field, auth=auth)
     if response.status_code == 201:
         return json.loads(response.content)
     else:
@@ -515,7 +560,7 @@ def freshdesk_view_field(field_name: str, fields: list):
     field_id = freshdesk_get_field_id(field_name, fields)
     url = f"https://{freshdesk_url}/api/v2/admin/ticket_fields/{field_id}"
     headers, auth = freshdesk_headers()
-    response = requests.get(url=url, headers=headers, auth=auth)
+    response = freshdesk_request("GET", url, headers=headers, auth=auth)
     if response.status_code == 200:
         return json.loads(response.content)
     else:
@@ -556,7 +601,7 @@ def freshdesk_update_field(field_id: int, field: dict):
     log.info("[yellow]Updating Freshdesk Field " + str(field))
     url = f"https://{freshdesk_url}/api/v2/admin/ticket_fields/{field_id}"
     headers, auth = freshdesk_headers()
-    response = requests.put(url=url, headers=headers, json=field, auth=auth)
+    response = freshdesk_request("PUT", url, headers=headers, json=field, auth=auth)
     if response.status_code == 200:
         return json.loads(response.content)
     else:
@@ -591,7 +636,7 @@ def freshdesk_get_tickets(repo: str):
         + '"'
     )
     headers, auth = freshdesk_headers()
-    response = requests.get(url=url, headers=headers, auth=auth)
+    response = freshdesk_request("GET", url, headers=headers, auth=auth)
     if response.status_code == 200:
         tickets = json.loads(response.content)["results"]
         log.info("[green]Freshdesk Tickets found: " + str(len(tickets)))
@@ -607,7 +652,7 @@ def freshdesk_get_ticket_summary(ticket: dict):
         "https://" + freshdesk_url + "/api/v2/tickets/" + str(ticket["id"]) + "/summary"
     )
     headers, auth = freshdesk_headers()
-    response = requests.get(url=url, headers=headers, auth=auth)
+    response = freshdesk_request("GET", url, headers=headers, auth=auth)
     if response.status_code == 200:
         summary = json.loads(response.content)["body"]
         log.info("[green]Freshdesk Ticket Summary found")
@@ -632,8 +677,8 @@ def freshdesk_update_ticket_ghissue(ticket: dict, gh_issue: dict):
         )
         url = f"https://{freshdesk_url}/api/v2/tickets/{ticket["id"]}"
         headers, auth = freshdesk_headers()
-        response = requests.put(
-            url=url, headers=headers, json=updated_ticket, auth=auth
+        response = freshdesk_request(
+            "PUT", url, headers=headers, json=updated_ticket, auth=auth
         )
         if response.status_code == 200:
             return json.loads(response.content)
@@ -654,7 +699,7 @@ def freshdesk_add_note(gh_issue: dict, ticket_id, repo: str):
     note.update({"private": True})
     url = f"https://{freshdesk_url}/api/v2/tickets/{ticket_id}/notes"
     headers, auth = freshdesk_headers()
-    response = requests.post(url=url, headers=headers, json=note, auth=auth)
+    response = freshdesk_request("POST", url, headers=headers, json=note, auth=auth)
     if response.status_code == 201:
         return json.loads(response.content)
     else:
@@ -698,8 +743,8 @@ def freshdesk_update_ticket_from_project(card: dict, ticket: dict):
         )
         url = f"https://{freshdesk_url}/api/v2/tickets/{ticket["id"]}"
         headers, auth = freshdesk_headers()
-        response = requests.put(
-            url=url, headers=headers, json=updated_ticket, auth=auth
+        response = freshdesk_request(
+            "PUT", url, headers=headers, json=updated_ticket, auth=auth
         )
         if response.status_code == 200:
             return json.loads(response.content)
@@ -711,6 +756,10 @@ def freshdesk_update_ticket_from_project(card: dict, ticket: dict):
 def get_create_fields(repos: dict):
     fields = freshdesk_get_fields()
     github_project_fields = github_get_project_fields()
+
+    if fields is None or github_project_fields is None:
+        log.error("[red]Could not fetch fields; skipping field setup")
+        return fields, github_project_fields
 
     if not next(
         (field for field in fields if field["name"] == "cf_development_task_title"),
@@ -904,6 +953,13 @@ def create_update_github_issues(fd_fields, gh_fields: dict, repo: str, cards: di
 if __name__ == "__main__":
     repos = github_get_repos()
     cards = github_get_project_cards()
-    fd_fields, gh_fields = get_create_fields(repos)
+    if os.environ.get("SYNC_FIELDS", "false").lower() == "true":
+        fd_fields, gh_fields = get_create_fields(repos)
+    else:
+        fd_fields = freshdesk_get_fields()
+        gh_fields = github_get_project_fields()
+    if fd_fields is None or gh_fields is None:
+        log.error("[red]Required fields unavailable; aborting sync")
+        sys.exit(1)
     for repo in repos:
         create_update_github_issues(fd_fields, gh_fields, repo, cards)
